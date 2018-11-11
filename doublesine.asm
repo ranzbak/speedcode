@@ -1,6 +1,7 @@
+.const DEBUG = 0
+
 //--------------------------------------------------------------------------------------------------
 // plasma params...
-
 .const templatex_len = _templatex - templatex
 .const templatey_len = _templatey - templatey
 .const templateend_len = _templateend - templateend
@@ -17,7 +18,7 @@
 .const posy = $05
 .const scrlo = $06
 .const scrhi = $07
-.const count = $08 // count during execution
+.const county = $08 // count during execution
 .const yval  = $09 // value for the Y row
 
 
@@ -87,22 +88,23 @@ main_loop:
 	jmp *
 
 rts
+
 //--------------------------------------------------------------------------------------------------
 // Interrupt routine
 irq_40:
+.if (DEBUG == 1) {
 	lda #$01
 	sta $d020
+}
 	
-	lda $d019		  // Ack interrupt
-	sta $d019
+	asl $d019		  // Ack interrupt
+	ldy sine128, x
+	sty county 
 
 	inx
-	jsr speedstart
+	inx
+	jmp speedstart
 
-	lda #$00
-	sta $d020
-
-	rti
 
 //--------------------------------------------------------------------------------------------------
 // Speed code generator
@@ -114,11 +116,11 @@ colorgen:
 	asl
 	asl
 	asl
-	asl
+	asl  // times 16
 	bcc !over+
-	eor #$ff
+	eor #$ff // if the carry is set, invert making a zig/zag
 !over:
-	lsr	
+	lsr	 // devide by 32
 	lsr	
 	lsr	
 	lsr	
@@ -140,7 +142,6 @@ speedgen:
 	ldy #$00
 	stx countlo
 	stx counthi
-	stx count
 !loop:
 	// store counters
 	stx posx
@@ -179,7 +180,7 @@ speedgen:
 
 	iny 
 	tya // Y postion
-	cmp #24 // 0-24 rows * 3 because 3 steps per line
+	cmp #25 // 0-24 rows * 3 because 3 steps per line
 	bne !loop-
 	
 	// End of speed code
@@ -196,8 +197,10 @@ speedgen:
 	cpx #templateend_len
 	bne !-
 	
+.if(DEBUG == 1) {
 	lda #00
 	sta $d020
+}
 	
 	rts // done
 
@@ -308,14 +311,18 @@ _templatex:
 //--------------------------------------------------------------------------------------------------
 // The template for every Y mutation
 templatey:
-	lda siney0: sine128, x
+	ldy county
+	lda siney0: sine128, y
 	sta yval	
 _templatey:
 
 //--------------------------------------------------------------------------------------------------
 // The template for every Y mutation
 templateend:
-rts
+	lda #$00
+	sta $d020
+
+	rti
 _templateend:
 
 
